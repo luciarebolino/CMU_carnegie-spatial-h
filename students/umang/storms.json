@@ -1,0 +1,9 @@
+[
+  {
+    "video": "IAN_2022_Dust.mp4",
+    "frames": "IAN_2022_Dust_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

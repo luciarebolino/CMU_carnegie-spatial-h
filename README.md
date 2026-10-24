@@ -1,10 +1,7 @@
-# Hurricane Trails
+# ⟣ Unpredictable Atmospheres
 
-Each student picks a hurricane, makes a satellite video of it in Google Earth Engine,
-and turns it into a small web page where the storm moves across the screen like a
-brush, leaving a trail of its own clouds behind it. All the pages live in one shared
-GitHub repo. A collective page stacks every student's storm on one map, and where two
-paths cross, a few seconds of a sound chosen by the students play.
+<img width="1301" height="876" alt="Screenshot 2026-10-24 at 8 36 57 AM" src="https://github.com/user-attachments/assets/58510639-e7e6-41bf-bdf0-e6df8b06ad0e" />
+
 
 ```
 Earth Engine ─► video.mp4 + frames.geojson ─► students/<name>/   (each student)
@@ -15,8 +12,8 @@ Earth Engine ─► video.mp4 + frames.geojson ─► students/<name>/   (each s
 ## What's in the repo
 
 ```
-index.html                    the collective page (instructor)
-students.json                 the student folders, for running it on your laptop
+index.html                    the collective page (Lucia will set this up)
+students.json                 the student names folders, for running it on your laptop
 gee/hurricane_goes_loop.js    the Earth Engine script
 students/
   _template/                  copy this folder to start
@@ -28,12 +25,10 @@ students/
 
 ---
 
-## For students
-
 ### 1. Make your video in Earth Engine
 
 1. Open the [Earth Engine Code Editor](https://code.earthengine.google.com/), paste the whole
-   `gee/hurricane_goes_loop.js` and click **Run**. A panel appears on the left.
+   `gee/hurricane_goes_loop.js` or follow the link [UA](https://code.earthengine.google.co.in/e6f8eb87536e74965fb2a49e5ca9ad32?hideCode=true)and click **Run**. A panel appears on the left.
 2. Type a **year** and click **Show storms**. Every storm of that year is drawn on the map.
    Pick one in the list, **or click its track**.
 3. Pick a **composite**: how the satellite picture is colored (see the
@@ -55,7 +50,7 @@ cloud before exporting. You normally don't need it (see `key` below).
 
 ### 2. Make your folder
 
-1. Clone the class repo and open it in **VS Code**.
+1. Clone the class repo (this one) and open it in **VS Code**.
 2. Copy `students/_template` and rename the copy `students/<your-name>`
    (lowercase, no spaces).
 3. Put your two files from Drive in it.
@@ -84,7 +79,7 @@ cloud before exporting. You normally don't need it (see `key` below).
 5. Install the **Live Server** extension, right-click `index.html` → **Open with Live Server**.
    (The page loads your files with `fetch`, which doesn't work if you just double-click it.)
 
-### 3. Make it yours
+### 3. Visualize on the website
 
 Open `index.html`. At the top, **SETTINGS** is all you need to change:
 
@@ -107,54 +102,15 @@ The page has no text on it, only your storm(s). Keys: **space** pause · **R** r
 
 ### 4. Share it
 
-Commit and push your folder (or upload it on github.com). That's all: the collective
-page finds it by itself. Your folder needs your video, your `_frames.geojson`, your
-`storms.json` and your `index.html`. Keep each `.mp4` under 25 MB for web uploads;
-100 MB is GitHub's limit.
+Commit and push your folder (or upload it on github.com). 
 
 ---
 
-## For the instructor
-
-### Setup
-1. Turn on **GitHub Pages** (Settings → Pages → deploy from `main`, root). The collective
-   page (tab title **UA**) is the site's front page; each student's page is at
-   `/students/<name>/` (tab title: the folder's name).
-2. On GitHub Pages, the collective page **finds every folder in `students/` by itself**
-   (it asks GitHub; folders starting with `_`, like `_template`, are skipped). Students
-   just push their folder.
-3. To run it on your laptop: list the folders in `students.json`
+## COLLECTIVE WEBSITE
+Lucia will do this:
+1. List the folders in `students.json`
    (`["lucia", "bob", "ugo"]`), run `python3 -m http.server` in the repo and open
    <http://localhost:8000>. (Also used if GitHub can't be reached.)
-4. A folder that's broken is skipped; the browser console says which.
-
-### The collective page
-- Every student page is loaded full screen on a transparent background. They all get the
-  same map (the area covering every path), so the storms land where they really went,
-  each drawn by its student's own code. On white, they blend like ink (`multiply`).
-- It **starts black**. On black, every storm shows its clouds light (whatever its
-  `invert`); on white, each student's `invert` is used. On white, storms blend like ink
-  (`multiply`); on black, like light (`screen`).
-- No text on screen except a small key guide, bottom-left: **W** black ↔ white (blue
-  tick = black, switches without restarting) · **B** next blend (its name is shown) · **R** restart · **H** hide the guide.
-- Sound comes on with your first key press or click (browsers block it until then).
-  For full screen, use the browser's own (⌃⌘F in Chrome on a Mac).
-- Storm and crossing counts, and anything that fails to load, are in the browser console.
-- 20–30 students is fine on a recent Mac.
-
-### Crossings
-- The page finds every place where two storms' paths cross, **in space only**, whatever
-  their dates. Two students who picked the same storm don't count as crossing.
-- Each student page tells the collective page where its storms are. When a storm comes
-  within 80 km of a crossing, **that storm's** `sound` plays for 8 seconds from a random
-  point, fading in and out (if it has none, the other storm's is used). Each crossing
-  plays once per storm per loop; the same sound never plays twice at once.
-- A sound **file** plays with nothing on screen. A **YouTube link** plays through
-  YouTube's player, which YouTube requires to be visible while it plays: a small
-  200×200 player fades in bottom-right for those 8 seconds. For pure sound, use files.
-- The example storms cross: Ian 2022 × Delta 2020 at 17.6°N 81.6°W; Eta 2020 × Ian four
-  times (Caribbean, western Cuba, off SW Florida, off the Carolinas) and × Delta once
-  (18.8°N 83.8°W). Bob's sound is `test-tone.mp4`, a placeholder test tone.
 
 ---
 

@@ -1,0 +1,9 @@
+[
+  {
+    "video": "IAN_2022_Clean_IR_Longwave_C13_.mp4",
+    "frames": "IAN_2022_Clean_IR_Longwave_C13__test_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

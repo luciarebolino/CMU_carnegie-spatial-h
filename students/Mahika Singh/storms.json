@@ -1,0 +1,9 @@
+[
+  {
+    "video": "MARTIN_2021_Enhanced_IR_color_.mp4",
+    "frames": "MARTIN_2021_Enhanced_IR_color__frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

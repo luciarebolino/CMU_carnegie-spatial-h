@@ -1,0 +1,9 @@
+[
+  {
+    "video": "HARVEY_2017_Nighttime_Microphysics_frames.mp4",
+    "frames": "HARVEY_2017_Nighttime_Microphysics_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

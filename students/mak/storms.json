@@ -1,0 +1,9 @@
+[
+  {
+    "video": "NORBERT_2020_Dust.mp4",
+    "frames": "NORBERT_2020_Dust_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

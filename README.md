@@ -84,6 +84,9 @@ students/
 *Clouds only (black background)* is optional: it blacks out everything that isn't
 cloud before exporting. You normally don't need it (see `key` below).
 
+<img width="1840" height="1196" alt="Screenshot 2026-10-24 at 8 56 58 AM" src="https://github.com/user-attachments/assets/a8c2abba-d606-4176-910a-72b53856b359" />
+
+
 ### 2. Make your folder
 
 1. Clone the class repo (this one) and open it in **VS Code**.

@@ -1,0 +1,9 @@
+[
+  {
+    "video": "BLAS_2022_Simple_Water_Vapor_test.mp4",
+    "frames": "BLAS_2022_Simple_Water_Vapor_test_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

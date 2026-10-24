@@ -1,0 +1,9 @@
+[
+  {
+    "video": "JULIA_2018_Dust.mp4",
+    "frames": "JULIA_2018_Dust_frames.geojson",
+    "invert": true,
+    "key": "background",
+    "sound": ""
+  }
+]

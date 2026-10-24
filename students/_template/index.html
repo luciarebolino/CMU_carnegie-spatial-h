@@ -132,7 +132,7 @@ function loadStorm(entry, index) {
           video: video,
           // see storms.json at the top: only on a white page (on black, dark
           // ink would vanish, so clouds stay light)
-          invert: DARK_PAGE ? false : (entry.invert ?? true),
+          invertSetting: entry.invert ?? true,
           key: entry.key ?? 'brightness',
           block: entry.block ?? 1,              // >1: cut out in squares (see TRY THIS)
           background: null,           // the frame's most common color (key "background")
@@ -207,7 +207,15 @@ const collective = params.has('collective');
 const STUDENT = location.pathname.split('/').slice(-2)[0];   // my folder's name
 document.title = STUDENT;                                     // the tab shows my folder's name
 // a dark page: the collective's (it tells us), or mine (BACKGROUND)
-const DARK_PAGE = collective ? params.get('paper') === 'black' : BACKGROUND === 'black';
+let DARK_PAGE = collective ? params.get('paper') === 'black' : BACKGROUND === 'black';
+
+// The collective page switching black/white: change colors without restarting.
+addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'paper') return;
+  DARK_PAGE = e.data.paper === 'black';
+  headCanvas.style.mixBlendMode = DARK_PAGE ? 'lighten' : 'darken';
+  storms.forEach(s => { s.lastFrame = -1; });   // redo the pictures with the new colors
+});
 if (collective) {
   document.body.style.background = 'transparent';
   document.getElementById('grain').style.display = 'none';   // the collective adds its own
@@ -275,7 +283,9 @@ function updatePicture(storm) {
   picture.canvas.width = w;
   picture.canvas.height = h;
   picture.drawImage(video, 0, 0);
-  if (!CLOUDS_ONLY && !storm.invert) return;
+  // invert only on a white page (on black, dark ink would vanish)
+  const invert = !DARK_PAGE && storm.invertSetting;
+  if (!CLOUDS_ONLY && !invert) return;
 
   // go through every pixel: px holds red, green, blue, alpha, red, green...
   const image = picture.getImageData(0, 0, w, h);
@@ -309,7 +319,7 @@ function updatePicture(storm) {
     for (let j = 0; j < cloud.length; j++) px[j * 4 + 3] = 255 * cloud[j];
   }
 
-  if (storm.invert) {
+  if (invert) {
     for (let i = 0; i < px.length; i += 4) {
       px[i] = 255 - px[i];
       px[i + 1] = 255 - px[i + 1];

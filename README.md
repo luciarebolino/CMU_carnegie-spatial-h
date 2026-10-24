@@ -136,7 +136,7 @@ page finds it by itself. Your folder needs your video, your `_frames.geojson`, y
   `invert`); on white, each student's `invert` is used. On white, storms blend like ink
   (`multiply`); on black, like light (`screen`).
 - No text on screen except a small key guide, bottom-left: **W** black ↔ white (blue
-  tick = black) · **B** next blend (its name is shown) · **R** restart · **H** hide the guide.
+  tick = black, switches without restarting) · **B** next blend (its name is shown) · **R** restart · **H** hide the guide.
 - Sound comes on with your first key press or click (browsers block it until then).
   For full screen, use the browser's own (⌃⌘F in Chrome on a Mac).
 - Storm and crossing counts, and anything that fails to load, are in the browser console.

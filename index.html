@@ -332,8 +332,13 @@ function applyBlend() {
 
 // ---------- keys ----------
 const actions = {
-  // black/white: the student pages reload, since their storms' colors change
-  w: () => { background = background === 'white' ? 'black' : 'white'; blendIndex = 0; applyBlend(); render(); },
+  w: () => {
+    background = background === 'white' ? 'black' : 'white';
+    blendIndex = 0;
+    applyBlend();
+    // tell the student pages, so they change colors without restarting
+    document.querySelectorAll('iframe').forEach(f => f.contentWindow.postMessage({ type: 'paper', paper: background }, '*'));
+  },
   b: () => { blendIndex = (blendIndex + 1) % BLENDS[background].length; applyBlend(); },
   r: () => render(),
   h: () => document.body.classList.toggle('hide-ui')

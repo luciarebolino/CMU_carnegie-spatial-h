@@ -1,0 +1,9 @@
+[
+  {
+    "video": "ETA_2020_Differential_Water_Vapor.mp4",
+    "frames": "ETA_2020_Differential_Water_Vapor_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

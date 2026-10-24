@@ -1,0 +1,9 @@
+[
+  {
+    "video": "DELTA_2020_Nighttime_Microphysics.mp4",
+    "frames": "DELTA_2020_Nighttime_Microphysics_frames.geojson",
+    "invert": false,
+    "key": "background",
+    "sound": "test-tone.mp4"
+  }
+]

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UA</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; color: #000;
+      font-family: Arial, Helvetica, sans-serif; }
+    body.dark { background: #000; color: #fff; }
+    iframe { position: fixed; inset: 0; width: 100vw; height: 100vh; border: 0;
+      pointer-events: none; background: transparent; }
+    /* YouTube's player must stay visible while it plays: small, bottom-right, only then */
+    #yt { position: fixed; right: 24px; bottom: 18px; z-index: 2; pointer-events: none; }
+    #yt > * { position: absolute; right: 0; bottom: 0; opacity: 0; transition: opacity .6s; }
+    #yt > .playing { opacity: 1; }
+    #grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .25; mix-blend-mode: screen; }
+    body.dark #grain { mix-blend-mode: multiply; }
+
+    /* the keys, small and underlined in the corner (black on white, white on black) */
+    #keys { position: fixed; left: 24px; bottom: 18px; z-index: 2; font-size: 14px; color: inherit;
+      display: flex; align-items: center; gap: 10px; }
+    #keys label { display: flex; align-items: center; gap: 4px; text-decoration: underline; cursor: pointer; }
+    #keys input { width: 13px; height: 13px; margin: 0; accent-color: #1a73e8; cursor: pointer; outline: none; }
+    body.hide-ui #keys { display: none; }
+  </style>
+</head>
+<body class="dark">
+  <div id="yt"></div>
+  <div id="grain"></div>
+  <div id="keys">
+    <label><input type="checkbox" id="paperBox">W black</label>
+    <label id="blendKey">B blend</label>
+    <label id="restartKey">R restart</label>
+    <label id="hideKey">H hide</label>
+  </div>
+
+<script>
+// Every student page (students/<name>/index.html) is stacked full screen
+// on a transparent background. On the shared map, all of them get the same
+// lon/lat area, so the trails land where the storms really went.
+//
+// Crossings: we find every place where two storms' paths cross (in space
+// only, whatever their dates). Each student page tells us where its storms
+// are; when a storm reaches a crossing, its "sound" plays for a few seconds
+// from a random point: a file in the student's folder (sound only), or a
+// YouTube link (YouTube's rules: its player must be visible while it plays,
+// so a small one shows bottom-right).
+//
+// Keys (also clickable in the corner): W black or white page · B how the
+// layers blend · R restart everything · H hide the key list. The blue tick
+// shows when the page is black. Sound comes on with the first key or click
+// (browsers block sound until then). Full screen: the browser's own (⌃⌘F).
+//
+// The students: on GitHub Pages, every folder in students/ is found by
+// asking GitHub (so a student only uploads their folder). Anywhere else,
+// e.g. on your laptop, students.json lists them.
+
+const MEET_KM = 80;          // how close a storm must pass a crossing to set it off
+const SOUND_SECONDS = 8;     // how long a crossing's sound plays
+const YT_SIZE = 200;         // px: the smallest YouTube player allowed
+
+// On white, layers darken each other (like ink); on black they add light.
+const BLENDS = {
+  white: ['multiply', 'darken', 'difference', 'normal'],
+  black: ['screen', 'lighten', 'difference', 'normal']
+};
+let background = 'black';     // the page starts black
+let blendIndex = 0;
+const blend = () => BLENDS[background][blendIndex];
+let sound = false;            // turns on with the first key or click
+
+let students = [];            // folder names that loaded
+let storms = [];              // every storm: {key, student, path, sound}
+let crossings = [];           // {id, lon, lat, a, b} (a and b are storm keys)
+let union = null;             // the area covering every path
+
+const $ = id => document.getElementById(id);
+
+
+// ---------- loading ----------
+// Each folder's storms.json lists its storms (see students/_template).
+function loadStudent(name) {
+  const folder = `students/${encodeURIComponent(name)}/`;
+  return fetch(folder + 'storms.json')
+    .then(r => { if (!r.ok) throw new Error(name); return r.json(); })
+    .then(list => Promise.all(list.map((entry, index) =>
+      fetch(folder + entry.frames)
+        .then(r => { if (!r.ok) throw new Error(name); return r.json(); })
+        .then(geojson => ({
+          key: `${name}#${index}`,
+          student: name,
+          path: geojson.features.map(f => f.properties)
+            .sort((a, b) => a.frame - b.frame)
+            .map(r => ({ lon: r.lon, lat: r.lat })),
+          sound: soundOf(entry.sound, folder)
+        }))
+    )))
+    .catch(() => { throw new Error(name); });
+}
+
+// The student folders. On GitHub Pages (https://<owner>.github.io/<repo>/),
+// GitHub lists the folders in students/ for us; otherwise students.json does.
+function studentFolders() {
+  const host = location.hostname;
+  if (host.endsWith('.github.io')) {
+    const owner = host.split('.')[0];
+    const repo = location.pathname.split('/')[1];
+    return fetch(`https://api.github.com/repos/${owner}/${repo}/contents/students`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(items => items.filter(i => i.type === 'dir' && !i.name.startsWith('_')).map(i => i.name))
+      .catch(() => fetch('students.json').then(r => r.json()));
+  }
+  return fetch('students.json').then(r => r.json());
+}
+
+studentFolders()
+  .then(names => Promise.allSettled(names.map(loadStudent)))
+  .then(results => {
+    const ok = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+    results.filter(r => r.status === 'rejected')
+      .forEach(r => console.warn('Not loading: ' + r.reason.message));
+    storms = ok.flat();
+    students = [...new Set(storms.map(s => s.student))];
+
+    const all = storms.flatMap(s => s.path);
+    union = {
+      west: Math.min(...all.map(p => p.lon)), east: Math.max(...all.map(p => p.lon)),
+      south: Math.min(...all.map(p => p.lat)), north: Math.max(...all.map(p => p.lat))
+    };
+    crossings = findCrossings(storms);
+    console.log(`${storms.length} storms, ${crossings.length} crossings`);
+
+    render();
+    requestAnimationFrame(moveGrain);
+  })
+  .catch(() => console.warn('Could not find the student folders'));
+
+
+// ---------- where paths cross ----------
+// Where segment p1-p2 crosses segment q1-q2 (in lon/lat), or null.
+function segmentCross(p1, p2, q1, q2) {
+  const d = (p2.lon - p1.lon) * (q2.lat - q1.lat) - (p2.lat - p1.lat) * (q2.lon - q1.lon);
+  if (d === 0) return null;                       // parallel
+  const t = ((q1.lon - p1.lon) * (q2.lat - q1.lat) - (q1.lat - p1.lat) * (q2.lon - q1.lon)) / d;
+  const u = ((q1.lon - p1.lon) * (p2.lat - p1.lat) - (q1.lat - p1.lat) * (p2.lon - p1.lon)) / d;
+  // strictly inside both segments: paths that only touch (e.g. two students
+  // who picked the same storm) don't count as crossing
+  if (t <= 0 || t >= 1 || u <= 0 || u >= 1) return null;
+  return { lon: p1.lon + t * (p2.lon - p1.lon), lat: p1.lat + t * (p2.lat - p1.lat) };
+}
+
+function km(a, b) {
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLon = (b.lon - a.lon) * Math.PI / 180 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180);
+  return 6371 * Math.hypot(dLat, dLon);
+}
+
+function findCrossings(list) {
+  const found = [];
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      const A = list[i].path, B = list[j].path;
+      for (let m = 0; m < A.length - 1; m++) {
+        for (let n = 0; n < B.length - 1; n++) {
+          const c = segmentCross(A[m], A[m + 1], B[n], B[n + 1]);
+          if (!c) continue;
+          // wiggly paths can cross several times in one spot: keep one
+          const near = found.some(f => f.a === list[i].key && f.b === list[j].key && km(f, c) < 100);
+          if (!near) found.push({ id: found.length, lon: c.lon, lat: c.lat, a: list[i].key, b: list[j].key });
+        }
+      }
+    }
+  }
+  return found;
+}
+
+
+// ---------- listening to the student pages ----------
+const lastTime = {};          // per storm: its video time, to notice restarts
+const done = {};              // per storm: crossings it has already set off this round
+
+addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.type !== 'storm') return;
+  const key = `${d.student}#${d.index}`;
+
+  if (lastTime[key] === undefined || d.time < lastTime[key] - 0.5) done[key] = new Set();
+  lastTime[key] = d.time;
+
+  for (const c of crossings) {
+    if (c.a !== key && c.b !== key) continue;
+    if (done[key].has(c.id)) continue;
+    if (km(d, c) > MEET_KM) continue;
+    done[key].add(c.id);
+    startMeet(c, key);
+  }
+});
+
+// ---------- sounds ----------
+// "sound" in storms.json: a YouTube link, or a file in the student's folder.
+function soundOf(value, folder) {
+  if (!value) return null;
+  const id = String(value).match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([\w-]{11})/);
+  return id ? { youtube: id[1] } : { file: folder + value };
+}
+
+function startMeet(c, key) {
+  // the storm that arrives brings its own sound; if it has none, the other's
+  const mine = storms.find(s => s.key === key);
+  const other = storms.find(s => s.key === (c.a === key ? c.b : c.a));
+  const pick = mine.sound ? mine : other;
+  if (!pick.sound || !sound) return;      // no sound, or nobody has pressed a key yet
+
+  // the same sound only once at a time (two crossings in one spot would echo)
+  const name = pick.sound.file || pick.sound.youtube;
+  if (nowPlaying.has(name)) return;
+  nowPlaying.add(name);
+  setTimeout(() => nowPlaying.delete(name), SOUND_SECONDS * 1000 + 1000);
+
+  if (pick.sound.file) playFile(pick.sound.file);
+  else playYouTube(pick.sound.youtube);
+}
+const nowPlaying = new Set();
+
+// A random start, so it leaves time to play SOUND_SECONDS before the end.
+const randomStart = duration => Math.random() * Math.max(0, duration - SOUND_SECONDS);
+
+// Volume from 0 up to 1 and back down over SOUND_SECONDS (setVolume: 0..1).
+function fadeInOut(setVolume, stop) {
+  const start = performance.now();
+  const timer = setInterval(() => {
+    const t = (performance.now() - start) / 1000;
+    if (t > SOUND_SECONDS) { clearInterval(timer); setVolume(0); stop(); return; }
+    setVolume(Math.min(1, t / 1, (SOUND_SECONDS - t) / 1));    // 1 s fade at each end
+  }, 50);
+}
+
+// A file (mp3, mp4, ...): only its sound, nothing on screen.
+function playFile(src) {
+  const audio = new Audio(src);
+  audio.addEventListener('loadedmetadata', () => {
+    audio.currentTime = randomStart(audio.duration);
+    audio.volume = 0;
+    audio.play().catch(() => {});
+    fadeInOut(v => { audio.volume = v; }, () => audio.pause());
+  }, { once: true });
+}
+
+// YouTube: its player API, loaded the first time it's needed.
+let youtubeReady = null;
+function loadYouTube() {
+  if (!youtubeReady) {
+    youtubeReady = new Promise(ready => { window.onYouTubeIframeAPIReady = ready; });
+    const script = document.createElement('script');
+    script.src = 'https://www.youtube.com/iframe_api';
+    document.head.append(script);
+  }
+  return youtubeReady;
+}
+
+function playYouTube(id) {
+  loadYouTube().then(() => {
+    const box = document.createElement('div');
+    $('yt').append(box);
+    const player = new YT.Player(box, {
+      width: YT_SIZE, height: YT_SIZE, videoId: id,
+      playerVars: { controls: 0, playsinline: 1, disablekb: 1 },
+      events: {
+        onReady: () => {
+          player.setVolume(0);
+          player.seekTo(randomStart(player.getDuration()), true);
+          player.playVideo();
+          player.getIframe().classList.add('playing');
+          fadeInOut(v => player.setVolume(v * 100), () => {
+            player.getIframe().classList.remove('playing');
+            setTimeout(() => player.destroy(), 700);
+          });
+        }
+      }
+    });
+  });
+}
+
+// One grain layer for everyone (the student pages turn theirs off in here),
+// made the same way as on the student pages.
+const grain = $('grain');
+(function makeGrain() {
+  const noise = document.createElement('canvas');
+  noise.width = noise.height = 256;
+  const g = noise.getContext('2d');
+  const dots = g.createImageData(256, 256);
+  for (let i = 0; i < dots.data.length; i += 4) {
+    dots.data[i] = dots.data[i + 1] = dots.data[i + 2] = Math.random() * 255;
+    dots.data[i + 3] = 255;
+  }
+  g.putImageData(dots, 0, 0);
+  grain.style.backgroundImage = `url(${noise.toDataURL()})`;
+})();
+
+function moveGrain() {
+  requestAnimationFrame(moveGrain);
+  grain.style.backgroundPosition = `${Math.random() * 256}px ${Math.random() * 256}px`;
+}
+
+
+// ---------- the student pages ----------
+// Every page gets the same map, and the color of the page (on black, storms
+// show their clouds light, whatever their "invert").
+function pageUrl(name) {
+  const a = union;
+  return `students/${encodeURIComponent(name)}/index.html?collective&paper=${background}` +
+    `&west=${a.west}&south=${a.south}&east=${a.east}&north=${a.north}`;
+}
+
+function render() {
+  document.querySelectorAll('iframe').forEach(f => f.remove());
+  for (const key in done) delete done[key];
+  for (const name of students) {
+    const frame = document.createElement('iframe');
+    frame.src = pageUrl(name);
+    frame.title = name;
+    frame.style.mixBlendMode = blend();
+    document.body.insertBefore(frame, $('grain'));
+  }
+}
+
+function applyBlend() {
+  document.body.classList.toggle('dark', background === 'black');
+  document.querySelectorAll('iframe').forEach(f => { f.style.mixBlendMode = blend(); });
+}
+
+// ---------- keys ----------
+const actions = {
+  // black/white: the student pages reload, since their storms' colors change
+  w: () => { background = background === 'white' ? 'black' : 'white'; blendIndex = 0; applyBlend(); render(); },
+  b: () => { blendIndex = (blendIndex + 1) % BLENDS[background].length; applyBlend(); },
+  r: () => render(),
+  h: () => document.body.classList.toggle('hide-ui')
+};
+
+// The blue tick and the blend's name follow what's on.
+function showKeys() {
+  $('paperBox').checked = background === 'black';
+  $('blendKey').textContent = 'B blend: ' + blend();
+}
+
+function act(k) {
+  if (!actions[k]) return;
+  actions[k]();
+  showKeys();
+}
+
+// Sound on with the first key or click.
+function soundOn() { sound = true; }
+
+addEventListener('keydown', e => { soundOn(); act(e.key.toLowerCase()); });
+addEventListener('pointerdown', soundOn);
+
+// clicking a key in the corner does the same as pressing it
+$('paperBox').onchange = () => act('w');
+$('blendKey').onclick = () => act('b');
+$('restartKey').onclick = () => act('r');
+$('hideKey').onclick = () => act('h');
+showKeys();
+</script>
+</body>
+</html>

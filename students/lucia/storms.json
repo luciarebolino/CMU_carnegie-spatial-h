@@ -1,0 +1,8 @@
+[
+  {
+    "video": "video.mp4",
+    "frames": "frames.geojson",
+    "invert": true,
+    "key": "brightness"
+  }
+]

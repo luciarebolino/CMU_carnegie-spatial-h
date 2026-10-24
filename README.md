@@ -1,7 +1,6 @@
-# ⟣ Unpredictable Atmospheres
+# ⟣ UA x CMU Spatial Humanities
 
-<img width="1301" height="876" alt="Screenshot 2026-10-24 at 8 36 57 AM" src="https://github.com/user-attachments/assets/58510639-e7e6-41bf-bdf0-e6df8b06ad0e" />
-
+<img width="1840" height="1196" alt="Screenshot 2026-10-24 at 8 49 31 AM" src="https://github.com/user-attachments/assets/37820a00-efef-419c-9c1d-d24ba5293d9d" />
 
 ```
 Earth Engine ─► video.mp4 + frames.geojson ─► students/<name>/   (each student)
@@ -24,6 +23,44 @@ students/
 ```
 
 ---
+
+## CLOUD COMPUTING 
+
+<img width="1459" alt="Screenshot 2025-02-18 at 2 01 30 AM" src="https://github.com/user-attachments/assets/1736e108-9530-48f6-ae5f-32a578e28f48" />
+
+[Google Earth Engine requires all users to sign-up for an account](https://code.earthengine.google.com/register). This account is linked with Google Cloud and users must create a Google Cloud Project to use the service. 
+- On the Product Registration Page, select Register a Noncommercial or Commercial Cloud project.
+- Next, you need to choose How do you want to use Earth Engine?. Choose the Unpaid usage, click Next. Since we are in Academia provider, we have chosen Unpaid usage → Research & Academia.
+- In the next dialog, choose Create a new Google Cloud Project. Select No organization for Organization and enter a Project-ID. This id needs to be unique. A standard practice is to use the project-ID in the form of ee-<yourusername>. Click CONTINUE TO SUMMARY. If you have never used Google Cloud before, an error message will be displayed with a note You must accept the Cloud Terms of Service before a Cloud Project can be created.
+- Choose your Country and review the Google Cloud Platform Terms of Service and the terms of service of any applicable services and APIs. After reviewing, click AGREE AND CONTINUE.
+- You will be presented with a summary in the Confirm your Cloud project information dialog. Review and click CONFIRM.
+- The project will be registered and you will be redirected to the Code Editor. If you are not redirected automatically, visit the Earth Engine Code Editor.
+
+
+Database links:
+<br>
+[Earth Engine Data Catalog](https://developers.google.com/earth-engine/datasets/catalog/landsat) <br>
+[GEE Community Catalogue](https://gee-community-catalog.org/)<br>
+[Spectral Indexes](https://awesome-ee-spectral-indices.readthedocs.io/en/latest/index.html)
+
+** A (very) quick intro to Remote Sensing **
+- **SATELLITES** – Understanding how satellite images are composed of discrete units of information (pixels, resolution, orbits)
+. [EE_GSAPP_Satellite](https://code.earthengine.google.co.in/9c4ceffd1f4d8af839f9ffa060b2a9ea?hideCode=true)
+- **TIME MACHINE** – Exploring how satellites capture imagery at different time intervals (satellite missions, technological gaps)
+. [EE_GSAPP_Time Machine](https://code.earthengine.google.co.in/446facbc6f11567f6b9ae001a6bd93c5?hideCode=true)
+- **SPECTRUM** – When light strikes an object, it can be absorbed, transmitted, or reflected. How this interaction happens and how it depends on the material properties of the surface.
+
+<p align="center">
+<img width="478" height="475" alt="Screenshot 2025-10-22 at 9 56 22 PM" src="https://github.com/user-attachments/assets/a832263c-6eb1-4eb9-b8c9-baf2ca848618" />
+</p>
+
+  
+. [EE_GSAPP_Spectrum](https://code.earthengine.google.co.in/d5e4b8c9a7143a895805d58d9e922529?hideCode=true)
+
+
+
+
+
 
 ### 1. Make your video in Earth Engine
 

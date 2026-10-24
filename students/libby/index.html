@@ -1,0 +1,495 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>My Hurricane</title>
+  <style>
+    body   { margin: 0; overflow: hidden; background: black; }
+    canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+    video  { display: none; }
+    #grain { position: fixed; inset: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Two drawing layers: the trail stays, the heads are redrawn every frame -->
+  <canvas id="trail"></canvas>
+  <canvas id="head"></canvas>
+
+  <!-- Film grain on top of everything -->
+  <div id="grain"></div>
+
+
+<script>
+// =============================================================
+//  MY HURRICANE
+//
+//  WHAT TO DO: you only edit two places.
+//
+//    1. storms.json (in this folder): which storm(s) to show.
+//       One { } per storm, with the two files from Earth Engine:
+//         "video"   the .mp4
+//         "frames"  the _frames.geojson
+//         "invert"  only on a white page: true = dark clouds (good for
+//                   Clean IR), false = keep the colors. On black: ignored.
+//         "key"     how the clear sky disappears:
+//                   "brightness" = dark sky disappears (Clean IR, Enhanced IR,
+//                                  Day Cloud Phase, Natural Color, Sandwich...)
+//                   "background" = the most common color disappears, like a
+//                                  green screen (Water Vapor, Air Mass, Nighttime
+//                                  Microphysics, Dust...)
+//         "sound"   (optional) a YouTube link, or a sound/video file in this
+//                   folder: on the collective page, where your storm's path
+//                   crosses someone else's, a few seconds of it play from a
+//                   random point
+//
+//    2. SETTINGS, just below: how it looks.
+//
+//  Open this page with Live Server. Keys: space = pause, R = restart,
+//  F = full screen.
+//
+//  Everything after SETTINGS works as it is: read it to see how it's done,
+//  and try the ideas in TRY THIS at the very bottom.
+// =============================================================
+
+
+// ---------- 1. SETTINGS: change these ----------
+const BACKGROUND = 'black';   // the page: 'black', 'white', or any CSS color like '#f4efe6'
+const SPEED = 0.8;            // 1 = normal speed, 0.5 = half speed
+
+// The brush: as the storm moves, it paints a trail behind it.
+// Sizes are real distances on Earth: hurricane clouds are about 500-1500 km across.
+const BRUSH_KM = 700;         // how wide the trail is, in km
+const BRUSH_OPACITY = 0.08;    // how thick the paint is: 0.03 = airy, 0.8 = solid
+const BRUSH_SOFT = 0.5;       // the trail's edges: 0 = sharp, 1 = very soft
+
+// The head: the storm right now, on top of its trail.
+const SHOW_HEAD = true;       // false = only the trail
+const HEAD_KM = 1300;         // how big it is, in km
+const HEAD_SOFT = 0.4;        // its edge: 0 = sharp circle, 1 = fades from the eye
+
+// The grain: film-like texture on the paint.
+const GRAIN = 0.5;           // 0 = none, 1 = strong
+const GRAIN_MOVING = true;    // true = dances like film, false = still like paper
+
+
+// ---------- FINE TUNING: you rarely need these ----------
+const CLOUDS_ONLY = true;     // false = show the whole video frame, sky and all
+const CLOUD_LEVEL = 0.3;      // "key": "brightness": darker than this disappears (0..1)
+const KEY_TOLERANCE = 0.2;    // "key": "background": raise it to remove more of the sky
+const BRUSH_SPACING = 3;      // the brush paints every this many pixels of movement
+
+
+// ---------- 2. GET THINGS FROM THE PAGE ----------
+const trailCanvas = document.getElementById('trail');
+const headCanvas = document.getElementById('head');
+const trail = trailCanvas.getContext('2d');   // we draw with these two
+const head = headCanvas.getContext('2d');
+
+// An extra canvas, not on the page: each storm is painted here first,
+// then copied onto the trail (faintly) or onto the head layer.
+const stamp = document.createElement('canvas').getContext('2d');
+
+let storms = [];   // one object per storm in storms.json (see loadStorm)
+
+
+// ---------- 3. LOAD MY STORMS ----------
+fetch('storms.json')
+  .then(response => response.json())
+  .then(list => Promise.all(list.map(loadStorm)))
+  .then(loaded => {
+    storms = loaded;
+    setup();
+    startAll();
+    requestAnimationFrame(draw);
+  });
+
+// One storm: its frames table, its video, and a few things we keep track of.
+function loadStorm(entry, index) {
+  return fetch(entry.frames)
+    .then(response => response.json())
+    .then(geojson => {
+      const rows = geojson.features.map(f => f.properties);
+      rows.sort((a, b) => a.frame - b.frame);
+
+      const video = document.createElement('video');
+      video.src = entry.video;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.onended = () => {
+        // when every storm has finished, wait 2 seconds and start again
+        if (storms.every(s => s.video.ended)) setTimeout(startAll, 2000);
+      };
+      document.body.appendChild(video);
+
+      return new Promise(ready => video.addEventListener('loadeddata', ready, { once: true }))
+        .then(() => ({
+          index: index,
+          rows: rows,                 // one row per video frame
+          fps: rows[0].fps,           // video frames per second
+          box: rows[0],               // every row also has west/south/east/north
+          video: video,
+          // see storms.json at the top: only on a white page (on black, dark
+          // ink would vanish, so clouds stay light)
+          invertSetting: entry.invert ?? true,
+          key: entry.key ?? 'brightness',
+          block: entry.block ?? 1,              // >1: cut out in squares (see TRY THIS)
+          background: null,           // the frame's most common color (key "background")
+          picture: document.createElement('canvas').getContext('2d', { willReadFrequently: true }),
+          lastFrame: -1,              // last video frame we turned into a picture
+          lastStamp: null             // where this brush last touched the page
+        }));
+    });
+}
+
+function startAll() {
+  trail.clearRect(0, 0, innerWidth, innerHeight);
+  for (const storm of storms) {
+    storm.lastStamp = null;
+    storm.lastFrame = -1;
+    storm.video.currentTime = 0;
+    storm.video.playbackRate = SPEED;
+    storm.video.play();
+  }
+}
+
+
+// ---------- 4. MAP: longitude/latitude -> pixels on screen ----------
+// Earth Engine exported the videos in Web Mercator, so we use the same math.
+function mercatorX(lon) { return lon * Math.PI / 180; }
+function mercatorY(lat) { return Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+
+let scale, originX, originY, minX, maxY;
+
+// Make an area of the Earth fill the screen (keeping its proportions).
+function fitMap(area) {
+  const margin = 80;
+  minX = mercatorX(area.west);
+  maxY = mercatorY(area.north);
+  const width = mercatorX(area.east) - minX;
+  const height = maxY - mercatorY(area.south);
+  scale = Math.min((innerWidth - 2 * margin) / width, (innerHeight - 2 * margin) / height);
+  originX = (innerWidth - width * scale) / 2;
+  originY = (innerHeight - height * scale) / 2;
+}
+
+function toPixels(lon, lat) {
+  return {
+    x: originX + (mercatorX(lon) - minX) * scale,
+    y: originY + (maxY - mercatorY(lat)) * scale     // north is up
+  };
+}
+
+// A distance on Earth (km) -> pixels on screen, at a given latitude.
+// (Web Mercator stretches things more the further they are from the equator.)
+function kmToPixels(km, lat) {
+  return km / 6371 / Math.cos(lat * Math.PI / 180) * scale;
+}
+
+// The area around the paths of all my storms.
+function pathArea() {
+  const rows = storms.flatMap(storm => storm.rows);
+  const lons = rows.map(r => r.lon);
+  const lats = rows.map(r => r.lat);
+  return {
+    west: Math.min(...lons), east: Math.max(...lons),
+    south: Math.min(...lats), north: Math.max(...lats)
+  };
+}
+
+// DON'T REMOVE: the collective page opens this file with
+// ?collective&west=..&south=..&east=..&north=.. so every hurricane
+// lands on the same map, on a transparent background, and it listens
+// to where each storm is (tellCollective) to notice paths crossing.
+const params = new URLSearchParams(location.search);
+const collective = params.has('collective');
+const STUDENT = location.pathname.split('/').slice(-2)[0];   // my folder's name
+document.title = STUDENT;                                     // the tab shows my folder's name
+// a dark page: the collective's (it tells us), or mine (BACKGROUND)
+let DARK_PAGE = collective ? params.get('paper') === 'black' : BACKGROUND === 'black';
+
+// The collective page switching black/white: change colors without restarting.
+addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'paper') return;
+  DARK_PAGE = e.data.paper === 'black';
+  headCanvas.style.mixBlendMode = DARK_PAGE ? 'lighten' : 'darken';
+  storms.forEach(s => { s.lastFrame = -1; });   // redo the pictures with the new colors
+});
+if (collective) {
+  document.body.style.background = 'transparent';
+  document.getElementById('grain').style.display = 'none';   // the collective adds its own
+} else {
+  document.body.style.background = BACKGROUND;
+}
+function sharedArea() {
+  if (!params.has('west')) return null;
+  return {
+    west: +params.get('west'), east: +params.get('east'),
+    south: +params.get('south'), north: +params.get('north')
+  };
+}
+function tellCollective(storm, pos) {
+  if (!collective) return;
+  parent.postMessage({
+    type: 'storm', student: STUDENT, index: storm.index,
+    lon: pos.lon, lat: pos.lat, time: storm.video.currentTime
+  }, '*');
+}
+
+
+// ---------- 5. SETUP: canvases as big as the screen ----------
+function setup() {
+  const dpr = devicePixelRatio;    // 2 on a Retina Mac: draw sharper
+  for (const canvas of [trailCanvas, headCanvas, stamp.canvas]) {
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  // The heads blend into the trail keeping whichever is darker ("darken"),
+  // or lighter on black ("lighten"), so their pale parts don't leave a halo
+  // over the trail, and they aren't darker than the trail either.
+  headCanvas.style.mixBlendMode = DARK_PAGE ? 'lighten' : 'darken';
+  makeGrain();
+  fitMap(sharedArea() || pathArea());
+}
+
+
+// ---------- 6. WHERE IS A STORM RIGHT NOW? ----------
+function stormNow(storm) {
+  const rows = storm.rows;
+  // which frame we're on (with decimals: 12.5 = halfway between 12 and 13)
+  const f = Math.min(rows.length - 1.001, storm.video.currentTime * storm.fps);
+  const k = Math.floor(f);
+  const t = f - k;
+  const a = rows[k];
+  const b = rows[k + 1];
+
+  // position: in between frame a and frame b
+  const lon = a.lon + (b.lon - a.lon) * t;
+  const lat = a.lat + (b.lat - a.lat) * t;
+  const p = toPixels(lon, lat);
+  return { x: p.x, y: p.y, lon: lon, lat: lat, row: a };
+}
+
+
+// ---------- 7. THE PICTURE ----------
+// A storm's current video frame, with everything that isn't cloud made
+// see-through (CLOUDS_ONLY) and/or colors flipped (invert).
+function updatePicture(storm) {
+  const video = storm.video;
+  const picture = storm.picture;
+  const w = video.videoWidth, h = video.videoHeight;
+  picture.canvas.width = w;
+  picture.canvas.height = h;
+  picture.drawImage(video, 0, 0);
+  // invert only on a white page (on black, dark ink would vanish)
+  const invert = !DARK_PAGE && storm.invertSetting;
+  if (!CLOUDS_ONLY && !invert) return;
+
+  // go through every pixel: px holds red, green, blue, alpha, red, green...
+  const image = picture.getImageData(0, 0, w, h);
+  const px = image.data;
+
+  if (CLOUDS_ONLY) {
+    // 1) how much each pixel looks like cloud, from 0 to 1
+    const cloud = new Float32Array(w * h);
+    const bg = storm.key === 'background' ? hue(backgroundColor(px, storm)) : null;
+    for (let i = 0, j = 0; i < px.length; i += 4, j++) {
+      let c;
+      if (bg) {
+        // a different kind of color from the background = cloud. We compare
+        // hues, not exact colors, so every shade of the ocean's blue (dark or
+        // light) counts as background. Very dark pixels have no clear hue:
+        // they count as background too.
+        const h = hue([px[i], px[i + 1], px[i + 2]]);
+        const diff = Math.hypot(h[0] - bg[0], h[1] - bg[1]);
+        const dark = Math.max(px[i], px[i + 1], px[i + 2]) / 255 < 0.15;
+        c = dark ? 0 : (diff - KEY_TOLERANCE) / 0.1;
+      } else {
+        // bright = cloud (brightness of the brightest color)
+        const brightness = Math.max(px[i], px[i + 1], px[i + 2]) / 255;
+        c = (brightness - CLOUD_LEVEL) / 0.25;
+      }
+      cloud[j] = Math.min(1, Math.max(0, c));
+    }
+    // 2) in squares: each square is all cloud or all see-through
+    if (storm.block > 1) squares(cloud, w, h, storm.block);
+    // 3) cloud becomes solid, the rest see-through
+    for (let j = 0; j < cloud.length; j++) px[j * 4 + 3] = 255 * cloud[j];
+  }
+
+  if (invert) {
+    for (let i = 0; i < px.length; i += 4) {
+      px[i] = 255 - px[i];
+      px[i + 1] = 255 - px[i + 1];
+      px[i + 2] = 255 - px[i + 2];
+    }
+  }
+  picture.putImageData(image, 0, 0);
+}
+
+// The background: the most common color in the frame (similar colors grouped
+// together), eased from frame to frame so it doesn't flicker.
+function backgroundColor(px, storm) {
+  const counts = new Uint32Array(4096);           // 16 x 16 x 16 groups of colors
+  for (let i = 0; i < px.length; i += 16) {       // every 4th pixel is enough
+    counts[(px[i] >> 4) << 8 | (px[i + 1] >> 4) << 4 | (px[i + 2] >> 4)]++;
+  }
+  let best = 0;
+  for (let k = 1; k < counts.length; k++) if (counts[k] > counts[best]) best = k;
+  const color = [(best >> 8) * 16 + 8, ((best >> 4) & 15) * 16 + 8, (best & 15) * 16 + 8];
+  storm.background = storm.background
+    ? storm.background.map((v, i) => v * 0.8 + color[i] * 0.2)
+    : color;
+  return storm.background;
+}
+
+// The "kind" of a color, whatever its lightness: the share of red and of
+// green in it (navy and light blue have about the same shares).
+function hue(rgb) {
+  const sum = rgb[0] + rgb[1] + rgb[2] + 1;
+  return [rgb[0] / sum, rgb[1] / sum];
+}
+
+// Cut the picture into squares of n x n pixels: a square is all cloud if
+// most of it is cloud, otherwise all see-through. That's the stair-step edge.
+function squares(cloud, w, h, n) {
+  for (let top = 0; top < h; top += n) {
+    for (let left = 0; left < w; left += n) {
+      let sum = 0, count = 0;
+      for (let y = top; y < Math.min(top + n, h); y++)
+        for (let x = left; x < Math.min(left + n, w); x++) { sum += cloud[y * w + x]; count++; }
+      const value = sum / count > 0.5 ? 1 : 0;
+      for (let y = top; y < Math.min(top + n, h); y++)
+        for (let x = left; x < Math.min(left + n, w); x++) cloud[y * w + x] = value;
+    }
+  }
+}
+
+
+// ---------- 8. DRAW ----------
+// Paint a storm around its eye on a canvas: the picture at its real place
+// on the map, fading out in a circle of the given size (in pixels).
+function paintStorm(ctx, storm, pos, size, soft) {
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
+
+  // 1) the whole picture, at its real place on the map
+  const box = storm.box;
+  const topLeft = toPixels(box.west, box.north);
+  const bottomRight = toPixels(box.east, box.south);
+  ctx.drawImage(storm.picture.canvas, topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+
+  // 2) a radial gradient: solid in the middle, transparent at the edge
+  const fade = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size / 2);
+  fade.addColorStop(0, 'rgba(0, 0, 0, 1)');
+  fade.addColorStop(1 - soft, 'rgba(0, 0, 0, 1)');
+  fade.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  // 3) "destination-in" keeps the picture only where the gradient is solid
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, innerWidth, innerHeight);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// The brush: paint one stamp, then press it faintly onto the trail.
+// Stamps pile up, so the trail gets denser where the storm lingers.
+function brushStamp(storm, pos) {
+  paintStorm(stamp, storm, pos, kmToPixels(BRUSH_KM, pos.lat), BRUSH_SOFT);
+  trail.globalAlpha = BRUSH_OPACITY;
+  trail.drawImage(stamp.canvas, 0, 0, innerWidth, innerHeight);
+  trail.globalAlpha = 1;
+}
+
+// The head: the storm right now, added to the head layer.
+function drawHead(storm, pos) {
+  paintStorm(stamp, storm, pos, kmToPixels(HEAD_KM, pos.lat), HEAD_SOFT);
+  head.drawImage(stamp.canvas, 0, 0, innerWidth, innerHeight);
+}
+
+function draw() {
+  requestAnimationFrame(draw);              // call draw() again next screen refresh
+  head.clearRect(0, 0, innerWidth, innerHeight);
+
+  for (const storm of storms) {
+    // the picture only changes when the video moves to a new frame
+    const k = Math.floor(storm.video.currentTime * storm.fps);
+    if (k !== storm.lastFrame) { updatePicture(storm); storm.lastFrame = k; }
+
+    const pos = stormNow(storm);
+
+    // stamp the brush every BRUSH_SPACING pixels
+    const last = storm.lastStamp;
+    if (last === null || Math.hypot(pos.x - last.x, pos.y - last.y) >= BRUSH_SPACING) {
+      brushStamp(storm, pos);
+      storm.lastStamp = pos;
+    }
+
+    if (SHOW_HEAD) drawHead(storm, pos);
+    tellCollective(storm, pos);
+  }
+
+  if (GRAIN_MOVING) moveGrain();
+}
+
+
+// ---------- 9. GRAIN ----------
+// A square of random gray dots, repeated over the whole page. Blended with
+// "screen" it only shows on dark paint and leaves the white paper alone
+// ("multiply" does the opposite on a black background).
+const grain = document.getElementById('grain');
+
+function makeGrain() {
+  const noise = document.createElement('canvas');
+  noise.width = noise.height = 256;
+  const g = noise.getContext('2d');
+  const dots = g.createImageData(256, 256);
+  for (let i = 0; i < dots.data.length; i += 4) {
+    const v = Math.random() * 255;
+    dots.data[i] = dots.data[i + 1] = dots.data[i + 2] = v;
+    dots.data[i + 3] = 255;
+  }
+  g.putImageData(dots, 0, 0);
+  grain.style.backgroundImage = `url(${noise.toDataURL()})`;
+  grain.style.opacity = GRAIN;
+  grain.style.mixBlendMode = DARK_PAGE ? 'multiply' : 'screen';
+}
+
+function moveGrain() {
+  grain.style.backgroundPosition = `${Math.random() * 256}px ${Math.random() * 256}px`;
+}
+
+
+// ---------- 10. KEYS ----------
+addEventListener('keydown', e => {
+  if (e.key === ' ') storms.forEach(s => s.video.paused ? s.video.play() : s.video.pause());
+  if (e.key === 'r') startAll();
+  if (e.key === 'f') document.documentElement.requestFullscreen();
+});
+addEventListener('resize', () => { if (storms.length) { setup(); startAll(); } });
+
+
+// =============================================================
+//  TRY THIS
+//  - Ink that builds up darker where stamps overlap: in brushStamp, before
+//    trail.drawImage(...) add
+//      trail.globalCompositeOperation = 'multiply';
+//    and after it add trail.globalCompositeOperation = 'source-over';
+//  - A brush that grows with the wind: in brushStamp use
+//      paintStorm(stamp, storm, pos, kmToPixels(pos.row.wind_kt * 6, pos.lat), BRUSH_SOFT);
+//  - Stronger wind = more paint: in brushStamp use
+//      trail.globalAlpha = BRUSH_OPACITY * pos.row.wind_kt / 60;
+//  - Dotted trail: BRUSH_SPACING = 60
+//  - Thick paint: BRUSH_OPACITY = 0.8   Airbrush: BRUSH_OPACITY = 0.03
+//  - Coarser grain: in makeGrain, add  grain.style.backgroundSize = '512px';
+//  - Only the trails: SHOW_HEAD = false
+//  - Pixelated cut-out edges: in storms.json add  "block": 12  to your storm
+//    (and set HEAD_SOFT = 0.1 for crisp squares)
+//  - A flat color behind everything: BACKGROUND = '#5b2d8e'
+//  - A second storm: export another one from Earth Engine, put its two files
+//    here and add a { } for it in storms.json
+// =============================================================
+</script>
+</body>
+</html>

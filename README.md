@@ -22,7 +22,7 @@ students/
   _template/                  copy this folder to start
     index.html                  your page (you edit the SETTINGS at the top)
     storms.json                 the list of your storm(s)
-  lucia/, ian-cloud-phase/,   example students (Ian 2022, Delta 2020, Eta 2020)
+  lucia/, ian/,   example students (Ian 2022, Delta 2020, Eta 2020)
   bob/, ugo/
 ```
 

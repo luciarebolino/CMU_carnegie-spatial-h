@@ -1,0 +1,9 @@
+[
+  {
+    "video": "GERT_2017_Dust.mp4",
+    "frames": "GERT_2017_Dust_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

@@ -35,13 +35,13 @@ Database links:
 - **TIME MACHINE** – Exploring how satellites capture imagery at different time intervals (satellite missions, technological gaps)
 . [EE_GSAPP_Time Machine](https://code.earthengine.google.co.in/446facbc6f11567f6b9ae001a6bd93c5?hideCode=true)
 - **SPECTRUM** – When light strikes an object, it can be absorbed, transmitted, or reflected. How this interaction happens and how it depends on the material properties of the surface.
-
+. [EE_GSAPP_Spectrum](https://code.earthengine.google.co.in/d5e4b8c9a7143a895805d58d9e922529?hideCode=true)
 <p align="center">
 <img width="478" height="475" alt="Screenshot 2025-10-22 at 9 56 22 PM" src="https://github.com/user-attachments/assets/a832263c-6eb1-4eb9-b8c9-baf2ca848618" />
 </p>
 
   
-. [EE_GSAPP_Spectrum](https://code.earthengine.google.co.in/d5e4b8c9a7143a895805d58d9e922529?hideCode=true)
+
 
 
 ### Unpredictable Atmospheres - workshop 

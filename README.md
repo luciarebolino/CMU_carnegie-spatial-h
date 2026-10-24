@@ -8,20 +8,6 @@ Earth Engine ─► video.mp4 + frames.geojson ─► students/<name>/   (each s
                        index.html (collective) ◄─────┘   all storms on one map
 ```
 
-## What's in the repo
-
-```
-index.html                    the collective page (Lucia will set this up)
-students.json                 the student names folders, for running it on your laptop
-gee/hurricane_goes_loop.js    the Earth Engine script
-students/
-  _template/                  copy this folder to start
-    index.html                  your page (you edit the SETTINGS at the top)
-    storms.json                 the list of your storm(s)
-  lucia/, ian/,   example students (Ian 2022, Delta 2020, Eta 2020)
-  bob/, ugo/
-```
-
 ---
 
 ## CLOUD COMPUTING 
@@ -58,8 +44,21 @@ Database links:
 . [EE_GSAPP_Spectrum](https://code.earthengine.google.co.in/d5e4b8c9a7143a895805d58d9e922529?hideCode=true)
 
 
+### Unpredictable Atmospheres - workshop 
 
+## What's in the repo
 
+```
+index.html                    the collective page (Lucia will set this up)
+students.json                 the student names folders, for running it on your laptop
+gee/hurricane_goes_loop.js    the Earth Engine script
+students/
+  _template/                  copy this folder to start
+    index.html                  your page (you edit the SETTINGS at the top)
+    storms.json                 the list of your storm(s)
+  lucia/, ian/,   example students (Ian 2022, Delta 2020, Eta 2020)
+  bob/, ugo/
+```
 
 
 ### 1. Make your video in Earth Engine

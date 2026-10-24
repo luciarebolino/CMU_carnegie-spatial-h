@@ -1,0 +1,9 @@
+[
+  {
+    "video": "HERMINE_2022_Air_Mass.mp4",
+    "frames": "HERMINE_2022_Air_Mass_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]

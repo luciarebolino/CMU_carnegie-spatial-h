@@ -1,0 +1,9 @@
+[
+  {
+    "video": "HARVEY_2017_Dust_frames.mp4",
+    "frames": "HARVEY_2017_Dust_frames.geojson",
+    "invert": true,
+    "key": "brightness",
+    "sound": ""
+  }
+]
